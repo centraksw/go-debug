@@ -26,7 +26,8 @@ type File struct {
 	OptionalFileHeader *OptionalFileHeader
 
 	Sections []*Section
-	Symbols  []*Symbol
+
+	symbols []Symbol
 
 	closer io.Closer
 }
@@ -116,7 +117,7 @@ func NewFile(r io.ReaderAt) (file *File, err error) {
 
 	// Read symbol table
 	sr.Seek(int64(file.SymbolTableStartAddress), 0)
-	file.Symbols = make([]*Symbol, 0, file.NumSymbolTableEntries)
+	file.symbols = make([]Symbol, 0, file.NumSymbolTableEntries)
 	for i := file.NumSymbolTableEntries; i > 0; i-- {
 		var sym symbol
 
@@ -147,7 +148,7 @@ func NewFile(r io.ReaderAt) (file *File, err error) {
 			}
 		}
 
-		file.Symbols = append(file.Symbols, &Symbol{
+		file.symbols = append(file.symbols, Symbol{
 			Name:           name,
 			Value:          sym.Value,
 			SectionNumber:  sym.SectionNumber,
@@ -190,6 +191,10 @@ func Open(name string) (f *File, err error) {
 
 	f.closer = of
 	return
+}
+
+func (f *File) Symbols() ([]Symbol, error) {
+	return f.symbols, nil
 }
 
 func (f *File) Close() error {

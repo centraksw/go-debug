@@ -41,6 +41,8 @@ type File struct {
 	// Sections is a slice of debug sections.
 	Sections []Section
 
+	Symbols []Symbol
+
 	closer io.Closer
 }
 
@@ -48,25 +50,54 @@ type File struct {
 func NewFile(r io.ReaderAt) (file *File, err error) {
 	file = new(File)
 
-	// Try ELF
-	if f, err := elf.NewFile(r); err == nil {
+	var ef *elf.File
+	ef, err = elf.NewFile(r)
+	if err == nil {
 		file.FileType = FileTypeELF
 
-		file.Sections = make([]Section, len(f.Sections))
-		for i, section := range f.Sections {
+		file.Sections = make([]Section, len(ef.Sections))
+		for i, section := range ef.Sections {
 			file.Sections[i] = &elfSection{section}
+		}
+
+		var symbols []elf.Symbol
+		symbols, err = ef.Symbols()
+		if err != nil {
+			return
+		}
+		file.Symbols = make([]Symbol, len(symbols))
+		for i := 0; i < len(file.Symbols); i++ {
+			file.Symbols[i].Name = symbols[i].Name
+			file.Symbols[i].Value = symbols[i].Value
+			file.Symbols[i].Size = symbols[i].Size
 		}
 
 		return file, nil
 	}
 
 	// Try COFF
-	if f, err := coff.NewFile(r); err == nil {
+	var cf *coff.File
+	cf, err = coff.NewFile(r)
+	if err == nil {
 		file.FileType = FileTypeCOFF
 
-		file.Sections = make([]Section, len(f.Sections))
-		for i, section := range f.Sections {
+		file.Sections = make([]Section, len(cf.Sections))
+		for i, section := range cf.Sections {
 			file.Sections[i] = &coffSection{section}
+		}
+
+		var symbols []coff.Symbol
+		symbols, err = cf.Symbols()
+		if err != nil {
+			return
+		}
+		file.Symbols = make([]Symbol, len(symbols))
+		for i := 0; i < len(file.Symbols); i++ {
+			file.Symbols[i].Name = symbols[i].Name
+			file.Symbols[i].Value = uint64(symbols[i].Value)
+			if symbols[i].AuxiliaryEntry != nil {
+				file.Symbols[i].Size = uint64(symbols[i].AuxiliaryEntry.Size)
+			}
 		}
 
 		return file, nil
@@ -160,4 +191,10 @@ func (section *elfSection) Address() uint64 {
 
 func (section *elfSection) Size() uint64 {
 	return uint64(section.s.Size)
+}
+
+type Symbol struct {
+	Name  string
+	Value uint64
+	Size  uint64
 }
