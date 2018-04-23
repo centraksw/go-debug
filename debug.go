@@ -7,7 +7,6 @@ package debug
 
 import (
 	"debug/elf"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -50,6 +49,8 @@ type File struct {
 func NewFile(r io.ReaderAt) (file *File, err error) {
 	file = new(File)
 
+	es := make(ErrorSlice, 0)
+
 	var ef *elf.File
 	ef, err = elf.NewFile(r)
 	if err == nil {
@@ -73,6 +74,8 @@ func NewFile(r io.ReaderAt) (file *File, err error) {
 		}
 
 		return file, nil
+	} else {
+		es = append(es, fmt.Errorf("debug/elf: %v", err))
 	}
 
 	// Try COFF
@@ -101,10 +104,11 @@ func NewFile(r io.ReaderAt) (file *File, err error) {
 		}
 
 		return file, nil
+	} else {
+		es = append(es, fmt.Errorf("debug/coff: %v", err))
 	}
 
-	// Unsupported file type
-	return nil, errors.New("unsupported debug file type")
+	return nil, es
 }
 
 // Open opens a debug file given a path.
@@ -197,4 +201,21 @@ type Symbol struct {
 	Name  string
 	Value uint64
 	Size  uint64
+}
+
+type ErrorSlice []error
+
+func Errors(err error) (errs []error) {
+	es, ok := err.(ErrorSlice)
+	if ok {
+		errs = []error(es)
+	} else {
+		errs = make([]error, 1)
+		errs[0] = err
+	}
+	return
+}
+
+func (es ErrorSlice) Error() string {
+	return fmt.Sprintf("%d errors returned", len(es))
 }

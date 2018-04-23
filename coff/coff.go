@@ -78,7 +78,7 @@ func NewFile(r io.ReaderAt) (file *File, err error) {
 	file.Sections = make([]*Section, file.NumSections)
 	for i := 0; i < len(file.Sections); i++ {
 		section := new(Section)
-		header := new(SectionHeader)
+		header := new(sectionHeader)
 
 		err = binary.Read(sr, binary.LittleEndian, &chars)
 		if err != nil {
@@ -142,7 +142,7 @@ func NewFile(r io.ReaderAt) (file *File, err error) {
 			i--
 			auxEntry = new(AuxiliaryEntry)
 
-			err = binary.Read(sr, binary.LittleEndian, &auxEntry)
+			err = binary.Read(sr, binary.LittleEndian, auxEntry)
 			if err != nil {
 				return
 			}
